@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "./hooks/session-start.js"
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "./hooks/rtk-shell.js",
+        "matcher": "Shell"
+      },
+      {
+        "command": "./hooks/enforce-cursor.js",
+        "matcher": "Write|Edit|StrReplace|Delete|EditNotebook"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "./hooks/enforce-cursor.js"
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "./hooks/enforce-cursor.js"
+      }
+    ]
+  }
+}

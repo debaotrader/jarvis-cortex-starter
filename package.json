@@ -1,0 +1,12 @@
+{
+  "name": "jarvis-cortex",
+  "version": "0.0.0",
+  "private": true,
+  "description": "JARVIS cortex — identidade, memória, regras, hooks, skills para Claude Code, Codex CLI e OpenCode. Config-as-code versionado.",
+  "scripts": {
+    "test": "node tests/run-all.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

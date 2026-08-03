@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "graphify-brain": {
+      "command": "${userHome}/.local/bin/graphify-mcp",
+      "args": [
+        "--graph",
+        "${userHome}/.jarvis/brain/graphify-out/graph.json"
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@0.0.68"
+      ]
+    },
+    "n8n": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "n8n-mcp-server@0.1.0"
+      ]
+    },
+    "MetaAds": {
+      "url": "https://mcp.facebook.com/ads"
+    }
+  }
+}

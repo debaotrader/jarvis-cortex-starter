@@ -1,0 +1,146 @@
+// settings.json.example
+//
+// Espelho versionado de ~/.claude/settings.json. NÃO USAR DIRETAMENTE —
+// copie para settings.json local e preencha os placeholders.
+//
+//   cp settings.json.example settings.json
+//   # depois edite e substitua <API_KEY>, <TOKEN>, <PATH> pelos seus
+//
+// secrets vivem em .env ou cofre apropriado. settings.json fica só com
+// paths e referências por nome de variável. JAMAIS commitar settings.json
+// real — está em .gitignore.
+//
+// === Blocos (ordem = ordem de prioridade no JSON real) ===
+//  1. permissions        — allowlist mínima do Claude Code
+//  2. model              — modelo principal (sonnet | opusplan | opus)
+//  3. hooks              — PreToolUse, PreCompact, SessionStart (strategic-compact)
+//  4. statusLine         — shell command da linha de status (caveman; provisionado por bootstrap-claude.sh)
+//  5. enabledPlugins     — plugins do marketplace
+//  6. extraKnownMarketplaces — fontes extras de marketplace
+//  7. effortLevel        — depth do agente principal
+//  8. advisorModel       — modelo do advisor (quando invocado)
+//  9. autoUpdatesChannel — latest | stable
+// 10. skip*              — flags de UX (skip prompts perigosos)
+// 11. theme              — dark | light
+// 12. agentPushNotifEnabled / voiceEnabled — UX features
+// 13. mcpServers         — servidores MCP declarativos (playwright, n8n, MetaAds)
+// 14. customSystemPrompt — prompt de sistema (lê BOOT.md no boot)
+
+{
+  "_README": "Mirror of settings.json. Copy to settings.json locally and fill placeholders. _fields are documentation — strip them before use.",
+
+  "permissions": {
+    "_comment": "Allowlist mínima. Evite broad permissions; prefira escopo por comando.",
+    "allow": [
+      "Bash(node -e \"JSON.parse(require('fs').readFileSync('settings.json','utf8'));console.log('JSON válido')\")"
+    ],
+    "additionalDirectories": [
+      "~/.claude/memory"
+    ]
+  },
+
+  "_comment_model": "Modelo principal. opusplan = roteia effort entre opus e sonnet; sonnet = tudo sonnet; opus = tudo opus. Default: sonnet.",
+
+  "model": "sonnet",
+
+  "hooks": {
+    "_comment": "Três estágios: PreToolUse (RTK + enforce + suggest-compact), PreCompact (pre-compact.js), SessionStart (strategic-compact em compact). Hooks caveman SessionStart/UserPromptSubmit vêm do plugin caveman (auto-registrados via plugin.json); não duplicar aqui.",
+
+    "PreToolUse": [
+      {
+        "_comment": "RTK obrigatório — reescreve todo Bash via rtk hook claude antes de executar.",
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "rtk hook claude" }
+        ]
+      },
+      {
+        "_comment": "Enforce: soft-block em arquivos protegidos e comandos perigosos. Nunca bloqueia — sempre pergunta.",
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          { "type": "command", "command": "node \"$HOME/.claude/active/rules/enforce.js\"" }
+        ]
+      },
+      {
+        "_comment": "Suggest-compact: lembra de /compact estratégico após N tool calls.",
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "node \"$HOME/.claude/active/skills/strategic-compact/suggest-compact.js\"" }
+        ]
+      }
+    ],
+
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "node \"$HOME/.claude/active/skills/strategic-compact/pre-compact.js\"" }
+        ]
+      }
+    ],
+
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          { "type": "command", "command": "node \"$HOME/.claude/active/skills/strategic-compact/session-start.js\"" }
+        ]
+      }
+    ]
+  },
+
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$HOME/.claude/hooks/caveman-statusline.sh\""
+  },
+
+  "enabledPlugins": {
+    "_comment": "Plugins ativos. codex@openai-codex é obrigatório pro re-review de loop-hermes no Claude Code. claude-mem é a engine de memória automática.",
+    "codex@openai-codex": true,
+    "claude-mem@thedotmack": true,
+    "n8n-to-langgraph@n8n-to-langgraph": true,
+    "n8n-mcp-skills@n8n-mcp-skills": true,
+    "caveman@caveman": true
+  },
+
+  "extraKnownMarketplaces": {
+    "openai-codex":   { "source": { "source": "github", "repo": "openai/codex-plugin-cc" } },
+    "thedotmack":     { "source": { "source": "github", "repo": "thedotmack/claude-mem" } },
+    "n8n-to-langgraph": { "source": { "source": "git",     "url": "https://github.com/fazer-ai/n8n-to-langgraph.git" } },
+    "n8n-mcp-skills": { "source": { "source": "github", "repo": "czlonkowski/n8n-skills" } },
+    "caveman":        { "source": { "source": "github", "repo": "JuliusBrussee/caveman" } }
+  },
+
+  "effortLevel": "xhigh",
+  "advisorModel": "opus",
+  "autoUpdatesChannel": "latest",
+
+  "_comment_skip_flags": "skipDangerousModePermissionPrompt e skipWorkflowUsageWarning eliminam prompts repetitivos. Manter se você confia no enforce.js + RTK + review chain.",
+
+  "skipDangerousModePermissionPrompt": true,
+  "skipWorkflowUsageWarning": true,
+
+  "theme": "dark",
+  "agentPushNotifEnabled": true,
+  "voiceEnabled": true,
+
+  "mcpServers": {
+    "_comment": "MCPs declarativos do setup. graphify-brain e registrado pelo scripts/setup-graphify-brain.sh para Claude Code e Codex.",
+
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@0.0.68"]
+    },
+    "n8n": {
+      "command": "npx",
+      "args": ["-y", "n8n-mcp-server@0.1.0"]
+    },
+    "MetaAds": {
+      "url": "https://mcp.facebook.com/ads"
+    }
+  },
+
+  "_comment_customSystemPrompt": "Prompt de sistema adicional. Carregado em todo boot. Deve apontar pra BOOT.md (não duplicar conteúdo dele).",
+
+  "customSystemPrompt": "Você é JARVIS, assistente pessoal do dono. Português brasileiro, direto e sem enrolação.\nAÇÃO OBRIGATÓRIA ao iniciar sessão: leia ~/.claude/BOOT.md e siga a sequência de inicialização."
+}

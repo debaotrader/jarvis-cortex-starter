@@ -1,0 +1,80 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Node version sanity (esperado >= 20)
+        run: |
+          node --version
+          node_major=$(node -p "process.versions.node.split('.')[0]")
+          if [ "$node_major" -lt 20 ]; then
+            echo "::error::Node >= 20 required, got $(node --version)"
+            exit 1
+          fi
+
+      - name: Discover + run *.test.js
+        run: node tests/run-all.js
+
+      - name: Bash syntax check em scripts/*.sh
+        run: bash -n scripts/*.sh
+
+      - name: Validate *.json (jq empty)
+        run: |
+          set -e
+          for f in $(find . -type f -name '*.json' \
+              -not -path './.git/*' \
+              -not -path '*/node_modules/*' \
+              -not -path '*/chroma_db/*'); do
+            jq empty "$f"
+          done
+
+      - name: Validate *.jsonc (strip // + /* */, depois jq empty)
+        run: |
+          set -e
+          for f in $(find . -type f -name '*.jsonc' \
+              -not -path './.git/*' \
+              -not -path '*/node_modules/*' \
+              -not -path '*/chroma_db/*'); do
+            node -e "
+              const fs = require('fs');
+              let s = fs.readFileSync(process.argv[1], 'utf8');
+              let out = '', inString = false, esc = false, i = 0;
+              while (i < s.length) {
+                const c = s[i], n = s[i+1];
+                if (inString) {
+                  out += c;
+                  if (esc) esc = false;
+                  else if (c === '\\\\') esc = true;
+                  else if (c === '\"') inString = false;
+                  i++; continue;
+                }
+                if (c === '\"') { inString = true; out += c; i++; continue; }
+                if (c === '/' && n === '/') { while (i < s.length && s[i] !== '\\n') i++; continue; }
+                if (c === '/' && n === '*') { i += 2; while (i < s.length - 1 && !(s[i] === '*' && s[i+1] === '/')) i++; i += 2; continue; }
+                out += c; i++;
+              }
+              JSON.parse(out);
+            " "$f"
+          done

@@ -1,0 +1,80 @@
+# Instintos iniciais do JARVIS — extraidos das sessoes de setup
+# Estes instintos foram curados manualmente a partir de padroes observados
+
+---
+id: sempre-portugues-brasileiro
+trigger: "em qualquer resposta ao dono"
+confidence: 0.9
+domain: "workflow"
+source: "user-correction"
+created: "2026-03-27"
+updated: "2026-03-27"
+---
+
+# Sempre Portugues Brasileiro
+
+## Acao
+Responder sempre em portugues brasileiro, direto e sem enrolacao.
+
+## Evidencia
+- Regra inviolavel #1 do CLAUDE.md
+- Correcao explicita do usuario em multiplas sessoes
+
+---
+id: vendor-staging-active-pipeline
+trigger: "ao importar componente externo para o JARVIS"
+confidence: 0.9
+domain: "workflow"
+source: "pattern-detection"
+created: "2026-03-27"
+updated: "2026-03-27"
+---
+
+# Pipeline Vendor -> Staging -> Active
+
+## Acao
+Sempre seguir o fluxo: vendor (copia fiel) -> staging (adaptacao) -> active (promocao apos revisao). Nunca pular etapas.
+
+## Evidencia
+- Aplicado com sucesso em verification-loop, strategic-compact, orchestrate, contexts, rules
+- Cada etapa tem registro no ecc-adaptation-log.md
+
+---
+id: nao-importar-infra-pesada
+trigger: "ao avaliar componente do ECC para importacao"
+confidence: 0.8
+domain: "architecture"
+source: "pattern-detection"
+created: "2026-03-27"
+updated: "2026-03-27"
+---
+
+# Nao Importar Infra Pesada do ECC
+
+## Acao
+Importar apenas a camada de valor (skills markdown, conceitos, formatos). Pular infra pesada (tmux, worktree orchestrator, session adapters, background agents).
+
+## Evidencia
+- Orchestrate: importamos apenas o command, descartamos tmux/worktree/session layers
+- Strategic-compact: importamos skill + hooks minimos, descartamos hook runner integral
+- Instinct system: importamos modelo + Stop hook, descartamos observer agent background
+
+---
+id: catalogo-estatico-fica-desatualizado
+trigger: "ao adicionar lista de skills ou tools no CLAUDE.md"
+confidence: 0.8
+domain: "architecture"
+source: "session-observation"
+created: "2026-03-27"
+updated: "2026-03-27"
+---
+
+# Catalogos Estaticos Ficam Desatualizados
+
+## Acao
+Nao manter listas estaticas de skills no CLAUDE.md ou BOOT.md. Preferir descoberta via filesystem ou tabelas de ponteiros para modulos.
+
+## Evidencia
+- CLAUDE.md original tinha catalogo de skills que ficou desatualizado
+- BOOT.md tinha lista de skills que nao refletia as promovidas do ECC
+- Resolvido na modularizacao: removido catalogo, adicionado tabela de ponteiros

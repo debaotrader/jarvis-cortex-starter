@@ -1,0 +1,4 @@
+{
+  "graphifyBrainPath": "/path/to/.jarvis/brain",
+  "claudeHome": "/path/to/.claude"
+}

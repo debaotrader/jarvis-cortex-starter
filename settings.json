@@ -1,0 +1,132 @@
+{
+  "permissions": {
+    "allow": [],
+    "additionalDirectories": [
+      "~/.claude/memory"
+    ]
+  },
+  "model": "sonnet",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rtk hook claude"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/active/rules/enforce.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/active/skills/strategic-compact/suggest-compact.js\""
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/active/skills/strategic-compact/pre-compact.js\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/active/skills/strategic-compact/session-start.js\""
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$HOME/.claude/hooks/caveman-statusline.sh\""
+  },
+  "enabledPlugins": {
+    "codex@openai-codex": true,
+    "claude-mem@thedotmack": true,
+    "n8n-to-langgraph@n8n-to-langgraph": true,
+    "n8n-mcp-skills@n8n-mcp-skills": true,
+    "caveman@caveman": true
+  },
+  "extraKnownMarketplaces": {
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc"
+      }
+    },
+    "thedotmack": {
+      "source": {
+        "source": "github",
+        "repo": "thedotmack/claude-mem"
+      }
+    },
+    "n8n-to-langgraph": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/fazer-ai/n8n-to-langgraph.git"
+      }
+    },
+    "n8n-mcp-skills": {
+      "source": {
+        "source": "github",
+        "repo": "czlonkowski/n8n-skills"
+      }
+    },
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    }
+  },
+  "effortLevel": "xhigh",
+  "advisorModel": "opus",
+  "autoUpdatesChannel": "latest",
+  "skipDangerousModePermissionPrompt": true,
+  "skipWorkflowUsageWarning": true,
+  "theme": "dark",
+  "agentPushNotifEnabled": true,
+  "voiceEnabled": true,
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@0.0.68"
+      ]
+    },
+    "n8n": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "n8n-mcp-server@0.1.0"
+      ]
+    },
+    "MetaAds": {
+      "url": "https://mcp.facebook.com/ads"
+    }
+  },
+  "customSystemPrompt": "Você é JARVIS, assistente pessoal do dono deste cortex. Português brasileiro, direto e sem enrolação.\nAÇÃO OBRIGATÓRIA ao iniciar sessão: leia ~/.claude/BOOT.md e siga a sequência de inicialização."
+}

@@ -1,0 +1,56 @@
+# === Credentials & secrets ===
+.credentials.json
+.update.lock
+mcp-needs-auth-cache.json
+settings.local.json
+config.json
+# Env files (D7-F2 round 5: missing gap; pre-emptive against .env commits)
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# === Conversation logs & session data (ephemeral) ===
+history.jsonl
+sessions/
+/projects/
+session-data/
+session-env/
+
+# === Ephemeral caches & temp ===
+backups/
+paste-cache/
+cache/
+__pycache__/
+*.py[cod]
+debug/
+file-history/
+shell-snapshots/
+tasks/
+teams/
+/plans/
+telemetry/
+
+# === IDE ===
+ide/*.lock
+
+# === Claude internal ===
+.claude/
+
+# === Marketplace skills (auto-reinstallable) — but keep active/skills/ (promoted, internal) ===
+/skills/
+
+# === ALL plugins (auto-synced by Claude Code) ===
+plugins/
+
+# === CLI wrappers (machine-specific) ===
+bin/
+
+# === Memory transient ===
+memory/sessions/
+*.original.md
+
+# === macOS Finder metadata (auto-recreated) ===
+.DS_Store
+**/.DS_Store

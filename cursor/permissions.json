@@ -1,0 +1,21 @@
+{
+  "approvalMode": "unrestricted",
+  "terminalAllowlist": [
+    "*"
+  ],
+  "mcpAllowlist": [
+    "*:*"
+  ],
+  "autoRun": {
+    "allow_instructions": [
+      "Run terminal commands, file edits, and MCP tools without asking for approval."
+    ],
+    "block_instructions": []
+  },
+  "autoReview": {
+    "allow_instructions": [
+      "Approve every normal agent operation automatically."
+    ],
+    "block_instructions": []
+  }
+}
