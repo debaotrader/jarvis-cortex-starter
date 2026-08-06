@@ -51,6 +51,7 @@ CDPATH=
 GLOBIGNORE=
 IFS=$' \t\n'
 set +f          # noglob: inherited via SHELLOPTS, makes globs literal
+umask 022       # a mode you did not assert is a mode you inherited
 
 # Resolve the checkout physically before deriving any managed source path.
 # CLAUDE.md documents invoking this through ~/.codex/jarvis-cortex, which on
@@ -177,8 +178,13 @@ MANAGED_TREES=("" "$CLAUDE_HOME/skills" "$CLAUDE_HOME/agents" \
 #
 # KEEP IN SYNC with the link loops below (the same names, same order). The
 # enumeration is the PRE-mutation gate; link_file's own directory-branch check
-# is the backstop that does not depend on this list staying complete, and it is
-# what covers the HM targets, which come from a glob and cannot be listed here.
+# is the backstop for DRIFT — a target added to a link loop and forgotten here.
+#
+# It does NOT cover the HM loop, and an earlier version of this comment claimed
+# it did. The HM loop never calls link_file: it symlinks when the path is empty
+# and WARNs + SKIPs on anything else (see the terminal-branch inventory below),
+# so no branch of it can move a pre-existing object in the first place. That is
+# why it needs no backstop, not that one covers it.
 MANAGED_LEAVES=("" \
   "$CLAUDE_HOME/BOOT.md" "$CLAUDE_HOME/CLAUDE.md" "$CLAUDE_HOME/JARVIS.md" \
   "$CLAUDE_HOME/MEMORY.md" "$CLAUDE_HOME/README.md" "$CLAUDE_HOME/RTK.md" \
@@ -571,6 +577,11 @@ backup_target() {
   local base root skills slot parked
   base="$(basename -- "$target")"
   mkdir -p "$CLAUDE_BACKUP_DIR" "$CLAUDE_HOME/skills"
+  # Backups hold whatever we displaced from the managed home — often the user's
+  # own config — so group/other write is never correct on it. The umask above
+  # covers what THIS run creates; this covers a root that already existed with
+  # looser bits.
+  chmod go-w "$CLAUDE_BACKUP_DIR" 2>/dev/null || true
   root="$(physical_path "$CLAUDE_BACKUP_DIR")" || { echo "Cannot resolve backup dir: $CLAUDE_BACKUP_DIR" >&2; exit 1; }
   skills="$(physical_path "$CLAUDE_HOME/skills")" || { echo "Cannot resolve skills dir: $CLAUDE_HOME/skills" >&2; exit 1; }
   case "$root/" in
@@ -647,9 +658,13 @@ link_file() {
     # cortex checkout, that move relocates our own source tree — the same
     # destruction shape the topology gate refuses, reached through a link TARGET
     # instead of a managed ancestor. MANAGED_LEAVES enumerates the fixed targets
-    # before the first mutation, but the HM targets come from a glob and cannot
-    # be listed there, so this is the backstop that does not depend on an
-    # enumeration staying complete.
+    # before the first mutation; this is the backstop for the case where a
+    # target is added to a link loop and not to that list — it does not depend
+    # on the enumeration staying complete.
+    #
+    # It does NOT extend to the HM loop, which never reaches link_file: that
+    # loop symlinks an empty path and WARNs + SKIPs anything else, so it has no
+    # branch that moves a pre-existing object.
     #
     # Only reachable when $target is NOT a symlink — a symlink took the -L
     # branch above — so park-always for symlinks is untouched by this check.
