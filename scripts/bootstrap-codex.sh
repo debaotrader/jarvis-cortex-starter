@@ -172,13 +172,18 @@ REPO_ROOT="$PHYSICAL_DIR"
 # The exact capture above makes a newline in the checkout's own name VISIBLE
 # rather than silently collapsing it onto a newline-free sibling. Having made it
 # visible, REFUSE it — the exactness guarantee dies at the process boundary.
-# This script hands off to scripts/install-codex-skills.sh, which re-derives its
-# own root with a bare `$(pwd)`; that capture collapses onto the sibling, and the
-# delegate would install sources from the WRONG TREE. Passing the exact value
-# through is not available: the delegate would have to be changed to consume it,
-# it is outside this task's scope, and a binding the callee does not honour is
-# worse than a refusal it cannot ignore. Same REJECT choice, for the same
-# reason, as the `..` component in anchor_existing_dir.
+# This script hands off to scripts/install-codex-skills.sh. That delegate used
+# to re-derive its own root with a bare `$(pwd)`, which collapses a
+# newline-named checkout onto its sibling and would install sources from the
+# WRONG TREE — so the refusal here was the only lever available. The delegate
+# now carries the same exact capture and the same refusal, so both ends agree
+# rather than one end compensating for the other.
+#
+# The REJECT choice stands, and not because the other end is weak: a refusal
+# the callee cannot ignore is still worth more than a binding it has to be
+# trusted to honour, and other delegates further out (install-mattpocock,
+# setup-graphify-brain) still derive their own roots. Same reasoning as the
+# `..` component in anchor_existing_dir.
 case "$REPO_ROOT" in
   *$'\n'*)
     echo "Refusing a cortex checkout whose path contains a newline: $REPO_ROOT" >&2

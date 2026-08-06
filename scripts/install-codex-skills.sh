@@ -1,8 +1,81 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+# --- INHERITED-STATE BOUNDARY ----------------------------------------------
+# See scripts/bootstrap-codex.sh for the full four-category taxonomy and its
+# Tier B acceptances (BASH_ENV/ENV, noexec, xtrace/PS4, PATH, function
+# shadowing — an adversary who can set them already executes code as this user).
+# Only what is LIVE IN THIS FILE is restated:
+#   CDPATH      LIVE, fixed. `cd` with a BARE RELATIVE operand that selects a
+#               NONEMPTY CDPATH entry PRINTS the directory it chose, and that
+#               line lands inside the $( ) capture — two lines where the code
+#               requires one. It bites when this script is invoked as
+#               `bash scripts/install-codex-skills.sh`, because BASH_SOURCE is
+#               then relative and dirname yields a bare "scripts". Neutralised
+#               here and locally in every helper that runs `cd`.
+#   noglob      LIVE, fixed by `set +f`. Inherited through SHELLOPTS it makes
+#               globs literal, and this file's skill loop is a glob: `for source
+#               in "$SOURCE_SKILLS"/*` would iterate the literal pattern, fail
+#               `[ -d ]`, install ZERO skills and still report success.
+#   GLOBIGNORE  NOT live across a process boundary; IFS is reset by bash at
+#   IFS         startup. Both retained for the SOURCED case only.
+# `umask 022` is deliberately NOT ported from the siblings: this file's
+# trees_identical digest includes mode bits, so forcing a umask would perturb
+# that comparison, and a permissions change is outside this containment port.
+# ---------------------------------------------------------------------------
+CDPATH=
+GLOBIGNORE=
+IFS=$' \t\n'
+set +f          # noglob: inherited via SHELLOPTS, makes globs literal
+
+# Exact capture: `$( )` strips EVERY trailing newline and both `pwd -P` and
+# `dirname` terminate their output with one, so a checkout literally named
+# "<name>"$'\n' collapses onto its newline-free sibling and this script would
+# install from the WRONG TREE — every source below hangs off REPO_ROOT
+# ($SOURCE_SKILLS, the promoted skills, the Impeccable agents link). The X
+# sentinel gives $( ) something of its own to eat. Results land in globals on
+# purpose: a second $( ) around a printing helper would re-eat the newline.
+# Never `local x="$(cmd)"` — `local` always returns 0 and would swallow the
+# status.
+dirname_exact() {
+  DIRNAME_EXACT="$(dirname -- "$1" && printf X)" || { DIRNAME_EXACT=""; return 1; }
+  DIRNAME_EXACT="${DIRNAME_EXACT%X}"
+  DIRNAME_EXACT="${DIRNAME_EXACT%$'\n'}"
+  [ -n "$DIRNAME_EXACT" ]
+}
+
+physical_dir_exact() {
+  # `local CDPATH=`: with CDPATH set, `cd` PRINTS the directory it chose and
+  # that line lands inside the capture below.
+  local CDPATH=
+  PHYSICAL_DIR="$(builtin cd -P -- "$1" 2>/dev/null && builtin pwd -P && printf X)" || { PHYSICAL_DIR=""; return 1; }
+  PHYSICAL_DIR="${PHYSICAL_DIR%X}"
+  PHYSICAL_DIR="${PHYSICAL_DIR%$'\n'}"
+  [ -n "$PHYSICAL_DIR" ]
+}
+
+dirname_exact "${BASH_SOURCE[0]}" \
+  || { echo "error: cannot derive this script's directory." >&2; exit 1; }
+physical_dir_exact "$DIRNAME_EXACT" \
+  || { echo "error: cannot resolve this script's directory physically." >&2; exit 1; }
+SCRIPT_DIR="$PHYSICAL_DIR"
+# The `..` is resolved by `cd -P`, not lexically: a lexical strip would climb
+# past a symlinked component and name a directory this script does not live in.
+physical_dir_exact "$SCRIPT_DIR/.." \
+  || { echo "error: cannot resolve the cortex checkout root." >&2; exit 1; }
+REPO_ROOT="$PHYSICAL_DIR"
+# Having made a newline in the checkout's name VISIBLE, refuse it: the
+# exactness guarantee dies at the process boundary, and this script hands off to
+# scripts/update-karpathy-skills.sh and gstack's own `./setup`, which re-derive
+# their roots with bare $( ) captures. bootstrap-codex.sh already refuses this
+# before delegating here; this is the guard for a DIRECT invocation, which is
+# the documented way to run the installer on its own.
+case "$REPO_ROOT" in
+  *$'\n'*)
+    echo "Refusing a cortex checkout whose path contains a newline: $REPO_ROOT" >&2
+    exit 1
+    ;;
+esac
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 SOURCE_SKILLS="$REPO_ROOT/codex/skills-local"
 TARGET_SKILLS="$CODEX_HOME/skills"
@@ -15,12 +88,18 @@ PROMOTED_CORTEX_SKILLS="dead-code-audit impeccable jarvis-learn loop-hermes orch
 AGENTS_TARGET_SKILLS="${AGENTS_TARGET_SKILLS:-$HOME/.agents/skills}"
 
 ensure_under() {
+  # `local CDPATH=` plus `builtin cd -P`/`builtin pwd -P`: CDPATH would print
+  # the directory it selected INTO these captures, and a LOGICAL cd/pwd reports
+  # the pretty path, so a symlinked component would compare as if it were where
+  # it is spelled rather than where it lands. Both operands are resolved the
+  # same way, so an ordinary symlinked home still matches itself.
+  local CDPATH=
   local path="$1"
   local parent="$2"
   local resolved_path
   local resolved_parent
-  resolved_path="$(cd -- "$(dirname -- "$path")" && pwd)/$(basename -- "$path")"
-  resolved_parent="$(cd -- "$parent" && pwd)"
+  resolved_path="$(builtin cd -P -- "$(dirname -- "$path")" && builtin pwd -P)/$(basename -- "$path")"
+  resolved_parent="$(builtin cd -P -- "$parent" && builtin pwd -P)"
 
   case "$resolved_path" in
     "$resolved_parent"/*) ;;
@@ -194,7 +273,8 @@ read_link_exact() {
 # backup root that is itself a symlink into skills/ cannot slip past the guard
 # in reserve_backup_slot (logical `cd`/`pwd` would report the pretty path).
 physical_path() {
-  cd -P -- "$1" 2>/dev/null && pwd -P
+  local CDPATH=   # see physical_dir_exact: CDPATH makes `cd` print its choice
+  builtin cd -P -- "$1" 2>/dev/null && builtin pwd -P
 }
 
 # Reserve an exclusive destination BEFORE anything moves. `mktemp -d` makes
