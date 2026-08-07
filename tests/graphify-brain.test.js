@@ -48,7 +48,16 @@ exit 0
 `);
 
   const graphifyMcp = path.join(bin, 'graphify-mcp');
-  fs.writeFileSync(graphifyMcp, '#!/usr/bin/env bash\nexit 0\n');
+  // Answers the MCP initialize handshake. The previous stub was `exit 0`, which
+  // passed the doctor check back when that check was `graphify-mcp --help` —
+  // and the real binary passed it too while crashing on startup. A stub that
+  // cannot fail the check it stands in for tests nothing, so this one has to
+  // speak the protocol exactly as the real server does.
+  fs.writeFileSync(graphifyMcp, `#!/usr/bin/env bash
+read -r _request
+printf '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{},"serverInfo":{"name":"stub","version":"0"}}}\\n'
+exit 0
+`);
 
   const claude = path.join(bin, 'claude');
   fs.writeFileSync(claude, `#!/usr/bin/env bash

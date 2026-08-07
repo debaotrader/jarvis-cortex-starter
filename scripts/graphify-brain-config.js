@@ -91,7 +91,80 @@ if (command === 'config-path') {
   } catch (error) {
     failValidation(error.message);
   }
+} else if (command === 'probe-mcp') {
+  // `graphify-mcp --help` is a VACUOUS probe: it parses arguments and exits 0
+  // without ever building the server, so it returned success while the server
+  // died in _build_server with `ImportError: cannot import name 'AnyUrl' from
+  // 'mcp.types'` — measured against mcp 2.0.0. The only check that separates a
+  // launcher that starts from a server that serves is speaking the protocol,
+  // so this drives a real stdio handshake and requires a JSON-RPC result.
+  const { spawn } = require('node:child_process');
+  const [bin, graph] = args;
+  const timeoutMs = Number(process.env.GRAPHIFY_MCP_PROBE_TIMEOUT_MS || 15000);
+
+  if (!bin || !graph) {
+    process.stderr.write('probe-mcp requires <graphify-mcp-bin> <graph-path>\n');
+    process.exit(2);
+  }
+
+  const child = spawn(bin, ['--graph', graph], { stdio: ['pipe', 'pipe', 'pipe'] });
+  let stdout = '';
+  let stderr = '';
+  let settled = false;
+
+  const finish = (code, message) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    if (message) process.stderr.write(`${message}\n`);
+    // SIGKILL, not the default SIGTERM: a server wedged in its own startup may
+    // not run handlers, and this probe must not outlive its own timeout.
+    try { child.kill('SIGKILL'); } catch { /* already gone */ }
+    process.exit(code);
+  };
+
+  const timer = setTimeout(
+    () => finish(1, `graphify-mcp did not answer initialize within ${timeoutMs}ms${stderr ? `: ${stderr.trim().split('\n').pop()}` : ''}`),
+    timeoutMs,
+  );
+
+  child.on('error', (error) => finish(1, `graphify-mcp could not be started: ${error.message}`));
+  // A server that dies before answering must not leave the probe waiting out
+  // the full timeout — report the crash with the line that explains it.
+  //
+  // 'close', NOT 'exit': 'exit' fires as soon as the process is gone, while
+  // its stdout may still hold an unread answer, so a server that replies and
+  // then exits would race and be reported as a crash. 'close' waits for both
+  // stdio streams, and the stdout handler below settles first when there is
+  // an answer to settle on.
+  child.on('close', () => finish(1, `graphify-mcp exited before answering initialize${stderr ? `: ${stderr.trim().split('\n').pop()}` : ''}`));
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  child.stdout.on('data', (chunk) => {
+    stdout += chunk;
+    // Frames are newline-delimited; the trailing partial stays buffered.
+    const lines = stdout.split('\n');
+    stdout = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let frame;
+      try { frame = JSON.parse(line); } catch { continue; }
+      if (frame.id !== 1) continue;
+      if (frame.result) finish(0, null);
+      else finish(1, `graphify-mcp rejected initialize: ${JSON.stringify(frame.error)}`);
+    }
+  });
+
+  child.stdin.write(`${JSON.stringify({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'initialize',
+    params: {
+      protocolVersion: '2024-11-05',
+      capabilities: {},
+      clientInfo: { name: 'jarvis-doctor', version: '1' },
+    },
+  })}\n`);
 } else {
-  process.stderr.write('Usage: graphify-brain-config.js <config-path|validate-graph|validate-codex-mcp|validate-claude-mcp> [args]\n');
+  process.stderr.write('Usage: graphify-brain-config.js <config-path|validate-graph|validate-codex-mcp|validate-claude-mcp|probe-mcp> [args]\n');
   process.exitCode = 2;
 }

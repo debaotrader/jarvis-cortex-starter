@@ -25,7 +25,7 @@ base no PATH. Os comandos assumem [Homebrew](https://brew.sh) instalado.
   ```bash
   npm install -g @openai/codex
   ```
-- **`graphify` e `graphify-mcp`** — obrigatorios para o Brain privado. Instale a versao validada do pacote `graphifyy[mcp]`.
+- **`graphify` e `graphify-mcp`** — obrigatorios para o Brain privado. Instale a versao validada do pacote `graphifyy` com **os dois** extras, `[mcp,openai]`: instalar um sozinho derruba o outro. O `--with "mcp<2"` é contorno, não piso — o `graphifyy` 0.9.11 declara `mcp` sem pin, então instalação limpa pega `mcp` 2.0.0 e o `graphify-mcp` morre com `ImportError: cannot import name 'AnyUrl' from 'mcp.types'`.
 - **`bun`** — obrigatório no `PATH` sempre que as skills do gstack forem instaladas
   no Cursor ou no Codex. O Cursor executa entrypoints TypeScript com `bun run`; o
   passo `./setup` do gstack no Codex também precisa de `bun`.
@@ -54,7 +54,7 @@ plugins do Claude Code se auto-instalam no launch porque a fonte está em
 | node + git | `brew install node git` | node >=20 |
 | rtk | `brew install rtk` (homebrew-core — https://www.rtk-ai.app) | 0.42.3 |
 | codex CLI | `npm install -g @openai/codex` | 0.130.0 |
-| graphify + graphify-mcp | `uv tool install --python 3.12 "graphifyy[mcp]==0.9.11"` | 0.9.11 |
+| graphify + graphify-mcp | `uv tool install --python 3.12 "graphifyy[mcp,openai]==0.9.11" --with "mcp<2"` | 0.9.11 (`mcp` 1.x) |
 | bun (com gstack) | `brew install bun` — obrigatório para o runtime gstack no Cursor e para o `./setup` no Codex | — |
 | gstack (skills) | `git clone https://github.com/garrytan/gstack.git` | — |
 | mattpocock (skills) | `git clone https://github.com/mattpocock/skills.git` (MIT) — instalado por `scripts/install-mattpocock-skills.sh` (best-effort, não-fatal, precisa de git + rede). Symlinka só as categorias ativas (engineering/productivity/misc); `caveman` é pulado (o plugin caveman é o dono) e deprecated/in-progress/personal nunca entram | — |
@@ -282,6 +282,12 @@ passos abaixo são **opcionais** e só entram conforme o que você usa nessa má
    ```bash
    git clone https://github.com/YOUR-USER/jarvis-brain.git ~/.jarvis/brain
    ~/.codex/jarvis-cortex/scripts/setup-graphify-brain.sh --all
+   ```
+   Isso **registra** o MCP; não regenera o grafo que ele serve. Depois de
+   escrever Markdown novo no Brain, rode a extração — os dois são scripts
+   distintos de propósito, porque a extração custa chamada de LLM:
+   ```bash
+   ~/.codex/jarvis-cortex/scripts/graphify-brain-update.sh
    ```
 2. **Dependências externas** — instalar conforme a seção "Dependências Externas" abaixo
    (gstack etc.).

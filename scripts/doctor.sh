@@ -214,9 +214,12 @@ else
     fi
 
     if [ -n "$GRAPHIFY_MCP_BIN" ]; then
-      "$GRAPHIFY_MCP_BIN" --help >/dev/null 2>&1 \
-        && ok "graphify-mcp entrypoint starts" \
-        || fail "graphify-mcp entrypoint failed" "install graphifyy with the mcp extra"
+      # NOT `--help`: that exits 0 without building the server, so it passed
+      # while graphify-mcp was crashing on an incompatible mcp package. This
+      # speaks the protocol instead — see probe-mcp in graphify-brain-config.js.
+      node "$SCRIPT_DIR/graphify-brain-config.js" probe-mcp "$GRAPHIFY_MCP_BIN" "$BRAIN_GRAPH" >/dev/null 2>&1 \
+        && ok "graphify-mcp answers the MCP handshake" \
+        || fail "graphify-mcp does not answer the MCP handshake" "reinstall: uv tool install --python 3.12 \"graphifyy[mcp,openai]==0.9.11\" --with \"mcp<2\" --force"
     else
       fail "graphify-mcp missing" "install graphifyy with the mcp extra"
     fi
