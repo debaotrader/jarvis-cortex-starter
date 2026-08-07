@@ -78,7 +78,7 @@ REPO_ROOT="$CAPTURED"
 
 MODE="${1:-all}"
 case "$MODE" in
-  all|claude|codex|opencode|cursor) ;;
+  all|claude|codex|opencode|cursor|graphify) ;;
   -h|--help)
     # Leading comment block by sentinel, not by line range — a hardcoded range
     # needed bumping on every header edit. Line 1 is skipped only if it really
@@ -91,7 +91,7 @@ case "$MODE" in
     exit 0
     ;;
   *)
-    echo "Unknown argument: $MODE (expected: claude | codex | opencode | cursor | all)" >&2
+    echo "Unknown argument: $MODE (expected: claude | codex | opencode | cursor | graphify | all)" >&2
     exit 2
     ;;
 esac
@@ -155,16 +155,46 @@ run_codex() {
   command "$SCRIPT_DIR/bootstrap-codex.sh"
 }
 
+run_graphify() {
+  # O Brain é um repositório PRIVADO, um por pessoa: este script não pode
+  # cloná-lo nem inventá-lo. Por isso a dependência é sondada aqui em vez de
+  # deixar o setup falhar — setup-graphify-brain.sh sai 1 tanto para "Brain
+  # ausente" quanto para falha inesperada, e um exit ambíguo não serve de base
+  # para decidir entre pular e abortar.
+  #
+  # A resolução espelha resolve_brain_home() do setup: JARVIS_BRAIN_HOME vence,
+  # senão o default. A chave graphifyBrainPath do config.json NÃO é lida aqui —
+  # exigiria node, e uma sonda que depende de node falharia por motivo errado
+  # numa máquina sem ele. Quem usa essa chave cai no skip e roda o setup direto,
+  # que é o caminho documentado.
+  local brain="${JARVIS_BRAIN_HOME:-$HOME/.jarvis/brain}"
+  if [ ! -d "$brain/.git" ]; then
+    if [ "$MODE" = all ]; then
+      echo "==> Jarvis Brain: SKIPPED (repositório não encontrado em $brain)"
+      echo "    Clone o Brain privado ali, ou defina JARVIS_BRAIN_HOME, e rode"
+      echo "    'scripts/setup-graphify-brain.sh --all'."
+      return 0
+    fi
+    echo "Jarvis Brain não encontrado: $brain" >&2
+    echo "Clone o repositório privado ali ou defina JARVIS_BRAIN_HOME." >&2
+    return 1
+  fi
+  echo "==> Jarvis Brain (graphify MCP)"
+  command "$SCRIPT_DIR/setup-graphify-brain.sh" --all
+}
+
 case "$MODE" in
   claude)   run_claude ;;
   opencode) run_opencode ;;
   cursor)   run_cursor ;;
   codex)    run_codex ;;
+  graphify) run_graphify ;;
   all)
     run_claude
     run_opencode
     run_cursor
     run_codex
+    run_graphify
     ;;
 esac
 
@@ -188,8 +218,9 @@ echo "  - Claude Code statusLine (caveman): the caveman plugin installs on Claud
 echo "    Code's FIRST launch, after this script runs. Re-run 'scripts/install.sh"
 echo "    claude' once after that first launch to provision the statusLine."
 echo "  - Cursor: Reload Window (Cmd+Shift+P) after bootstrap so MCP + hooks load."
-echo "  - Jarvis Brain: clone the private repo to '~/.jarvis/brain' (or set"
-echo "    JARVIS_BRAIN_HOME), then run 'scripts/setup-graphify-brain.sh --all'."
+echo "  - Jarvis Brain: se foi PULADO acima, clone o repositório privado em"
+echo "    '~/.jarvis/brain' (ou defina JARVIS_BRAIN_HOME) e rode"
+echo "    'scripts/install.sh graphify'."
 echo "  - Codex MCPs (optional): run 'scripts/install-codex-mcps.sh' (needs API keys)."
 
 # Propagate doctor's exit so install.sh is a trustworthy gate (0 = healthy install).
