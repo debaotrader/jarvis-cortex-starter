@@ -885,7 +885,7 @@ test('[a3r5] a malformed MCP tool_input never echoes its bytes back', () => {
     'SK_7f4c',
     'ghp_' + 'LIVETOKEN123',
     'AKIA' + 'IOSFODNN7EXAMPLE',
-    'xoxb' + '-9999-secret',
+    'xoxb-' + '9999-secret',
     'password=hunter2',
   ];
   for (const secret of SECRETS) {

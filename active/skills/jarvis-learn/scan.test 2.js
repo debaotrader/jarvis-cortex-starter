@@ -156,16 +156,16 @@ test('[privacy] redactSensitive round 6 — expanded secret coverage', () => {
   assert.match(redactSensitive('github_pat_' + '11ABCDEFG0_xyz123abc456def789ghi'), /\[REDACTED\]/);
 
   // Slack tokens
-  assert.match(redactSensitive('xoxb-' + '1234567890-1234567890-abcdefghijklmnopqrstuvwx'), /\[REDACTED\]/);
-  assert.match(redactSensitive('xoxp-' + '1234-5678-9012-3456-789012345678-abcdef1234567890abcdef1234567890'), /\[REDACTED\]/);
-  assert.match(redactSensitive('xapp-1-A012345-12345-abcdef1234567890abcdef1234567890'), /\[REDACTED\]/);
+  assert.match(redactSensitive('xoxb' + '-1234567890-1234567890-abcdefghijklmnopqrstuvwx'), /\[REDACTED\]/);
+  assert.match(redactSensitive('xoxp' + '-1234-5678-9012-3456-789012345678-abcdef1234567890abcdef1234567890'), /\[REDACTED\]/);
+  assert.match(redactSensitive('xapp' + '-1-A012345-12345-abcdef1234567890abcdef1234567890'), /\[REDACTED\]/);
 
   // AWS access keys
   assert.match(redactSensitive('AKIA' + 'IOSFODNN7EXAMPLE'), /\[REDACTED\]/);
 
   // Stripe live keys
-  assert.match(redactSensitive('sk_live_' + 'abcdef1234567890abcdef12345678'), /\[REDACTED\]/);
-  assert.match(redactSensitive('pk_live_' + 'abcdef1234567890abcdef12345678'), /\[REDACTED\]/);
+  assert.match(redactSensitive('sk_' + 'live_abcdef1234567890abcdef12345678'), /\[REDACTED\]/);
+  assert.match(redactSensitive('pk_' + 'live_abcdef1234567890abcdef12345678'), /\[REDACTED\]/);
 
   // Supabase
   assert.match(redactSensitive('sbp_' + 'abcdef1234567890abcdef12345678'), /\[REDACTED\]/);

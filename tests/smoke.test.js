@@ -180,8 +180,8 @@ test('[smoke] memory/projects/*.md tem pelo menos um project com name+type', (t)
   const dir = path.join(REPO_ROOT, 'memory', 'projects');
   // Um cortex recem-clonado nao tem projeto registrado ainda: memory/ nasce
   // vazio de proposito. Isso e o estado inicial esperado, nao um defeito, e
-  // falhar aqui daria vermelho no primeiro contato de quem clona. O teste so
-  // tem o que afirmar quando existe pelo menos um arquivo pra validar.
+  // falhar aqui daria vermelho no primeiro contato de quem clona o starter.
+  // O teste so tem o que afirmar quando existe pelo menos um arquivo.
   const candidatos = fs.existsSync(dir)
     ? [...walk(dir)].filter((f) => f.endsWith('.md'))
     : [];
