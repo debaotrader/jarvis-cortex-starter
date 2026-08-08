@@ -226,6 +226,10 @@ function runDoctor(home, opts = {}) {
     GSTACK_REPO_ROOT: opts.gstackRoot || path.join(home, '.gstack', 'repos', 'gstack'),
     AGENTS_TARGET_SKILLS: opts.agentsTargetSkills || path.join(home, '.agents', 'skills'),
     JARVIS_BRAIN_OPTIONAL: '1',
+    // Opt-in: the REPOS section reads the Brain through this, and it is the
+    // only repo slot a test can control — REPO_ROOT is derived from the script
+    // path and always names the live cortex.
+    ...(opts.brainHome ? { JARVIS_BRAIN_HOME: opts.brainHome } : {}),
     ...(thirdPartyFixture ? { CURSOR_STATE_DB: thirdPartyFixture.stateDb } : {}),
     ...(opts.cursorStateDb ? { CURSOR_STATE_DB: opts.cursorStateDb } : {}),
     ...(opts.cursorUserDataDir ? { CURSOR_USER_DATA_DIR: opts.cursorUserDataDir } : {}),
@@ -3072,5 +3076,130 @@ test('[doctor] cursor missing rtk-shell under preToolUse → FAIL', () => {
     assert.strictEqual(r.code, 1, `expected exit 1, got ${r.code}\n${r.stdout}`);
   } finally {
     rmHome(home);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// REPOS: committed-but-unpushed detection.
+//
+// The Brain is the only repo slot these tests can steer — REPO_ROOT is derived
+// from doctor.sh's own path and always names the live cortex, so asserting on
+// the cortex row would couple the suite to the machine's push state. Every
+// branch of check_repo_sync is reachable through the Brain slot, so that is
+// where they are exercised.
+//
+// The fixture Brain has no graphify-out/, so the GRAPHIFY section fails early
+// with "graph missing or empty" and never invokes the real graphify binary
+// against a throwaway repo. These tests therefore assert on the REPOS line and
+// deliberately do not assert exit 0.
+
+function fixtureGit(root, args) {
+  const r = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
+  assert.strictEqual(r.status, 0, `git ${args.join(' ')} failed:\n${r.stderr}`);
+  return r;
+}
+
+function makeBrainRepo(home, opts = {}) {
+  const { remote = true, pushed = true, extraCommits = 0, detached = false } = opts;
+  const root = path.join(home, 'brain');
+  fs.mkdirSync(root, { recursive: true });
+  assert.strictEqual(spawnSync('git', ['init', '-q', root]).status, 0, 'git init failed');
+  // symbolic-ref instead of `git init -b main`: the flag needs git >= 2.28 and
+  // this has to hold on whatever git the host ships.
+  fixtureGit(root, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
+  fixtureGit(root, ['config', 'user.name', 'doctor-test']);
+  fixtureGit(root, ['config', 'user.email', 'doctor-test@example.invalid']);
+  fixtureGit(root, ['config', 'commit.gpgsign', 'false']);
+  fs.writeFileSync(path.join(root, 'seed.md'), 'seed\n');
+  fixtureGit(root, ['add', 'seed.md']);
+  fixtureGit(root, ['commit', '-q', '-m', 'seed']);
+
+  if (remote) {
+    const bare = path.join(home, 'brain-origin.git');
+    assert.strictEqual(spawnSync('git', ['init', '--bare', '-q', bare]).status, 0, 'bare init failed');
+    fixtureGit(root, ['remote', 'add', 'origin', bare]);
+    if (pushed) fixtureGit(root, ['push', '-q', '-u', 'origin', 'main']);
+  }
+  for (let i = 0; i < extraCommits; i += 1) {
+    fs.writeFileSync(path.join(root, `extra-${i}.md`), `extra ${i}\n`);
+    fixtureGit(root, ['add', `extra-${i}.md`]);
+    fixtureGit(root, ['commit', '-q', '-m', `extra ${i}`]);
+  }
+  if (detached) fixtureGit(root, ['checkout', '-q', '--detach']);
+  return root;
+}
+
+test('[doctor] REPOS reports a pushed Brain as matching its upstream', () => {
+  const home = mkTempHome();
+  try {
+    const brain = makeBrainRepo(home);
+    const r = runDoctor(home, { brainHome: brain });
+    assert.match(r.stdout, /OK\s+Jarvis Brain: 'main' matches the last-known upstream/, r.stdout);
+  } finally {
+    rmHome(home);
+  }
+});
+
+test('[doctor] REPOS warns about commits that were never pushed', () => {
+  const home = mkTempHome();
+  try {
+    const brain = makeBrainRepo(home, { extraCommits: 2 });
+    const r = runDoctor(home, { brainHome: brain });
+    assert.match(
+      r.stdout,
+      /WARN\s+Jarvis Brain: 2 commit\(s\) committed but not pushed on 'main'/,
+      r.stdout,
+    );
+  } finally {
+    rmHome(home);
+  }
+});
+
+test('[doctor] REPOS warns on detached HEAD, where commits belong to no branch', () => {
+  const home = mkTempHome();
+  try {
+    const brain = makeBrainRepo(home, { detached: true });
+    const r = runDoctor(home, { brainHome: brain });
+    assert.match(r.stdout, /WARN\s+Jarvis Brain: detached HEAD/, r.stdout);
+  } finally {
+    rmHome(home);
+  }
+});
+
+test('[doctor] REPOS warns when a branch in a repo with remotes tracks nothing', () => {
+  const home = mkTempHome();
+  try {
+    const brain = makeBrainRepo(home, { remote: true, pushed: false });
+    const r = runDoctor(home, { brainHome: brain });
+    assert.match(r.stdout, /WARN\s+Jarvis Brain: branch 'main' has no upstream/, r.stdout);
+  } finally {
+    rmHome(home);
+  }
+});
+
+// DIFFERENTIAL, on purpose. Asserting only "a local-only repo produces no
+// line" is vacuous: a check that has been deleted is silent too, and the
+// first version of this test passed against a neutered check_repo_sync. The
+// silence only means something alongside a run that DOES speak, so both are
+// asserted here and the test goes red if either half stops holding.
+test('[doctor] REPOS stays silent about a local-only repo but speaks when a remote exists', () => {
+  const silentHome = mkTempHome();
+  const speakingHome = mkTempHome();
+  try {
+    const silent = runDoctor(silentHome, { brainHome: makeBrainRepo(silentHome, { remote: false }) });
+    // The colon discriminates: every REPOS line reads "Jarvis Brain: …", while
+    // the GRAPHIFY section's messages read "Jarvis Brain graph …".
+    assert.doesNotMatch(silent.stdout, /Jarvis Brain: /, silent.stdout);
+    assert.match(silent.stdout, /^REPOS$/m, 'the REPOS group must still be printed');
+
+    const speaking = runDoctor(speakingHome, { brainHome: makeBrainRepo(speakingHome) });
+    assert.match(
+      speaking.stdout,
+      /Jarvis Brain: /,
+      'the same check must produce a line once a remote exists, or the silence above proves nothing',
+    );
+  } finally {
+    rmHome(silentHome);
+    rmHome(speakingHome);
   }
 });

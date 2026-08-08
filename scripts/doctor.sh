@@ -1090,6 +1090,75 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# The cortex and the Brain are deliberately separate repositories: keeping the
+# Brain out of the cortex is what makes the public starter safe by construction
+# — sync-starter.sh derives it from `git ls-files`, so durable knowledge living
+# inside the cortex would sit one regex away from publication. The cost of that
+# split is that committed work can sit unpushed in a repo you were not looking
+# at. This section pays that cost down.
+#
+# READ-ONLY AND OFFLINE BY DESIGN. It compares HEAD against the remote-tracking
+# ref ALREADY on disk and never fetches: a fetch would turn doctor.sh into a
+# network operation, mutate refs, and fail on a machine with no connectivity.
+# The consequence is worth stating plainly — this answers "did I commit and
+# forget to push", NOT "is my branch current with the remote". A tracking ref
+# that has never been updated reports zero ahead exactly like a pushed branch
+# does. Run `git fetch` yourself when the second question is the one you have.
+check_repo_sync() {
+  local label="$1" root="$2"
+
+  # Absent or not a repo: other sections own reporting that, and a second
+  # complaint about the same missing thing is noise.
+  [ -n "$root" ] || return 0
+  git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || return 0
+
+  local branch
+  branch="$(git -C "$root" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  if [ -z "$branch" ]; then
+    warn "$label: detached HEAD — commits here belong to no branch"
+    return 0
+  fi
+
+  # No remote at all is a deliberate local-only checkout (the README supports
+  # cloning anywhere, including a fork with no origin). Nothing to be behind on,
+  # so say nothing. A branch with no upstream in a repo that DOES have remotes
+  # is the different, reportable case: work that can never be pushed by accident.
+  if [ -z "$(git -C "$root" remote 2>/dev/null)" ]; then
+    return 0
+  fi
+  if ! git -C "$root" rev-parse --verify --quiet '@{upstream}' >/dev/null 2>&1; then
+    warn "$label: branch '$branch' has no upstream — nothing tracks it"
+    return 0
+  fi
+
+  local counts behind ahead
+  if ! counts="$(git -C "$root" rev-list --left-right --count '@{upstream}...HEAD' 2>/dev/null)"; then
+    warn "$label: could not compare '$branch' against its upstream"
+    return 0
+  fi
+  behind="${counts%%[!0-9]*}"
+  ahead="${counts##*[!0-9]}"
+
+  if [ "${ahead:-0}" -gt 0 ]; then
+    warn "$label: $ahead commit(s) committed but not pushed on '$branch' — git -C $root push"
+  elif [ "${behind:-0}" -gt 0 ]; then
+    # From the tracking ref on disk, so it only ever fires when a real fetch
+    # already happened and the merge did not.
+    warn "$label: '$branch' is $behind commit(s) behind the last-known upstream — git -C $root pull"
+  else
+    ok "$label: '$branch' matches the last-known upstream"
+  fi
+}
+
+group "REPOS"
+if command -v git >/dev/null 2>&1; then
+  check_repo_sync "jarvis-cortex" "$REPO_ROOT"
+  check_repo_sync "Jarvis Brain" "$BRAIN_HOME"
+else
+  warn "git not on PATH — cannot check whether committed work is pushed"
+fi
+
+# ---------------------------------------------------------------------------
 group "SUMMARY"
 printf 'doctor: %d ok, %d warn, %d fail\n' "$OK_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
 if [ "$FAIL_COUNT" -gt 0 ]; then
