@@ -68,6 +68,46 @@ def ensure_under(path: pathlib.Path, parent: pathlib.Path) -> None:
     if path != parent and parent not in path.parents:
         raise SystemExit(f"Refusing to operate outside expected directory: {path}")
 
+def refuse_symlinked_source(tree: pathlib.Path) -> None:
+    """Refuse upstream content carrying symlinks, before anything is copied.
+
+    shutil.copytree defaults to symlinks=False, which copies what a link POINTS
+    AT rather than the link itself. This source is third-party content fetched
+    over the network, and the destinations are directories an agent reads: a
+    link named SKILL.md pointing at ~/.ssh/id_ed25519 or a project .env would
+    land there as a regular file with the secret inside it.
+
+    Refusing rather than passing symlinks=True, per the cortex's own rule about
+    not defending a capability that keeps producing findings: a skills tree has
+    no legitimate use for links, while symlinks=True would publish DANGLING
+    links into the skills directory instead. Refusal has exactly one meaning; a
+    copy-semantics guess has two, and neither is obviously right.
+
+    NOTE: no symlink was observed in this upstream when the guard was written —
+    it is prophylactic against content nobody here controls, not a fix for an
+    observed defect.
+
+    os.walk with followlinks=False, not Path.rglob: rglob descends INTO
+    symlinked directories, so a link pointing at its own ancestor would spin
+    instead of being reported.
+    """
+    if tree.is_symlink():
+        raise SystemExit(
+            f"Refusing a symlinked source path: {tree}\n"
+            f"Upstream {repo_url} must ship regular files and directories only."
+        )
+    if not tree.is_dir():
+        return
+    for root, dirnames, filenames in os.walk(tree, followlinks=False):
+        for name in sorted(dirnames) + sorted(filenames):
+            candidate = pathlib.Path(root) / name
+            if candidate.is_symlink():
+                raise SystemExit(
+                    f"Refusing a source tree that contains a symlink: {candidate}\n"
+                    f"copytree would copy what it points at into a skills directory "
+                    f"the agent reads. Upstream {repo_url} must ship regular files only."
+                )
+
 cache_root.mkdir(parents=True, exist_ok=True)
 ensure_under(cache_root, codex_home / "plugins" / "cache")
 
@@ -92,6 +132,11 @@ for entry in skill_entries:
     source = marketplace_root.joinpath(*normalized.split("/"))
     if not source.exists():
         raise SystemExit(f"Skill path from upstream manifest was not found: {source}")
+
+    # Before either copy below, and before the is_dir() branch: a symlinked
+    # source path answers is_dir() by what it POINTS AT, so the check has to
+    # come first or a link to a directory takes the copytree branch unnoticed.
+    refuse_symlinked_source(source)
 
     if source.is_dir():
         skill_name = source.name
