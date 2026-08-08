@@ -35,7 +35,7 @@ Encontre o root nesta ordem:
 ### Skills mattpocock (externas, MIT)
 - categorias ativas (engineering/productivity/misc) menos `caveman`, instaladas em `~/.codex/skills/` por `scripts/install-mattpocock-skills.sh` (best-effort, não-fatal). `deprecated`/`in-progress`/`personal` nunca entram
 - **Sem lista estática aqui.** O upstream (`$MATTPOCOCK_REPO`, default `https://github.com/mattpocock/skills.git`) não é pinado e renomeia skill — enumerar aqui apodrece. Pra saber o que existe agora, liste o clone. O cache é derivado do diretório-alvo (`dirname` do target), então no Codex é `~/.codex/.cache/mattpocock-skills` e no Claude é `~/.claude/.cache/mattpocock-skills`; `$MATTPOCOCK_CACHE` sobrescreve: `ls "${MATTPOCOCK_CACHE:-$HOME/.codex/.cache/mattpocock-skills}"/skills/{engineering,productivity,misc}`
-- `active/contexts/mattpocock-skills.md` guarda o routing, mas **está desatualizado**: roteia por `diagnose`, `to-issues`, `to-prd`, `zoom-out` e `write-a-skill`, nenhum deles presente nas categorias ativas do clone hoje. Não roteie por nome tirado dele sem conferir no clone
+- `active/contexts/mattpocock-skills.md` guarda o routing e está **correto para o ref fixado** (`MATTPOCOCK_REF=9603c1c`): cobre as 26 skills e traz uma tabela dos nomes que morreram upstream. Ao bumpar o ref, atualize os dois no mesmo commit — antes do pin esse arquivo era infixável, porque toda correção envelhecia na instalação seguinte
 - Carregar contexto quando user mencionar TDD/triage/spec/prototype/grilling ou ambiguidade entre `investigate` e a skill de debug do mattpocock
 - `caveman` skipped (colide com as skills caveman vendoradas em `codex/agent-skills/`)
 
